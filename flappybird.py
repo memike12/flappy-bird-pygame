@@ -320,14 +320,14 @@ def msec_to_frames(milliseconds, fps=FPS):
 
     return fps * milliseconds / 3000.0
 
-def qUpdate(oldState, action, newState):
-    r = getReward(oldState, action, newState)
-    qTable[(oldState, action)] = (1 - alpha) * qLookup(oldState, action) + alpha * (r + gamma * maxQ(newState))
-    if qTable[(oldState, action)] != 0:
-        print ("updated " + action + " " + str(oldState) + " : " + str(qTable[(oldState, action)]))
+#States are (closestPipe's x coord, closestPipe's top pipe y coord, birds y coord)
+def qUpdate(oldState, action, newState): 
+    qTable[(oldState, action)] = (1 - alpha) * qLookup(oldState, action) + alpha * (getReward(oldState, action, newState) + gamma * maxQ(newState))
+    #if qTable[(oldState, action)] != 0:
+        #print ("updated " + action + " " + str(oldState) + " : " + str(qTable[(oldState, action)]))
 
 def maxQ(newState):
-    q = max( qLookup(newState, 'jump'), qLookup(newState, 'nothing'))
+    q = max( qLookup(newState, 'up'), qLookup(newState, 'nothing'))
     return q
 
 def getReward(oldState, action, newState):
@@ -352,9 +352,12 @@ def main():
     """
     finished = False
     highscore = 1
+    won = 0
+    lost = 0
     pygame.init()
     while not finished:
-        jumped = False
+        
+        pickled = False
         display_surface = pygame.display.set_mode((WIN_WIDTH, WIN_HEIGHT))
         pygame.display.set_caption('Pygame Flappy Bird')
 
@@ -382,6 +385,7 @@ def main():
         oldState = (500, 100, 280, bird.y)
         action = 'nothing'
         while not done:
+            jumped = False
             clock.tick(FPS)
 
             #logic to make sure your switching pipes once you're clear of the close one
@@ -421,10 +425,13 @@ def main():
             # check for collisions
             pipe_collision = any(p.collides_with(bird) for p in pipes)
             if pipe_collision or 0 >= bird.y or bird.y >= WIN_HEIGHT - Bird.HEIGHT:
-                rewardTable[(oldState, action, newState)] = -1
+                rewardTable[(oldState, action, newState)] = -100
                 qUpdate(oldState, action, newState)
                 #print ("saved " + str(oldState) + " : " + str(rewardTable[(oldState, action, newState)]))
                 done = True
+                lost += 1
+            else:
+                rewardTable[(oldState, action, newState)] = 1
 
             for x in (0, WIN_WIDTH / 2):
                 display_surface.blit(images['background'], (x, 0))
@@ -443,9 +450,13 @@ def main():
             for p in pipes:
                 if p.x + PipePair.WIDTH < bird.x and not p.score_counted:
                     score += 1
+                    won += 1
                     #print("recorded")
                     rewardTable[(oldState, action, newState)] = 10
+
                     qUpdate(oldState, action, newState)
+                    #if action == 'nothing':
+                        #print ("saved nothing action " + str(qLookup(oldState, 'nothing')))
                     #print ("saved up " + str(oldState) + " : " + str(rewardTable[(oldState, action, newState)]))
                     p.score_counted = True
 
@@ -478,14 +489,21 @@ def main():
             jumpQscore = qLookup(oldState, 'up')
             nothingQscore = qLookup(oldState, 'nothing')
 
-            if jumpQscore != 0:
-                print ("found action - up " + str(oldState) + " : " + str(jumpQscore))
-            if nothingQscore != 0:
-                print ('found action - nothing' + str(oldState) + " : " + str(nothingQscore))
+            #if jumpQscore > 0:
+            #    print ("found action - up " + str(oldState) + " : " + str(jumpQscore))
+            #if nothingQscore > 0:
+            #   print ('found action - nothing' + str(oldState) + " : " + str(nothingQscore))
             rantint = randint(0, 1000)/1000
             #print (rantint)
-            if not jumpQscore < nothingQscore:
-                if jumpQscore > nothingQscore or  rantint > .93:
+            justDoIt = False
+            if rantint > .95: # and not nothingQscore > jumpQscore:
+                justDoIt = True
+                #print ("do it")
+            if not jumpQscore < nothingQscore or  justDoIt:
+                if jumpQscore > nothingQscore or justDoIt:
+                    #if jumpQscore > nothingQscore:
+                        #if jumpQscore > 0:
+                            #print ("chose jump because of q score " + str(jumpQscore) + " vs " + str(nothingQscore))
                     #if jumpQscore > (nothingQscore + .001):
                     #print ("jumped")
                     #if rantint > .98:
@@ -496,23 +514,34 @@ def main():
                     bird.msec_to_climb = Bird.CLIMB_DURATION
                     qUpdate(oldState, 'up', newState)
                     action = 'up'
+                    #if qLookup(oldState, 'up') != 0:
+                        #print ("saved jumped action " + str(qLookup(oldState, 'nothing')))
                     jumped = True
+            #else:
+                #if nothingQscore > 0:
+                    #print ("chose nothing because of q score " + str(jumpQscore) + " vs " + str(nothingQscore))
 
             if not jumped:
                 qUpdate(oldState, 'nothing', newState)
                 action = 'nothing'
+                #if action == 'nothing' and qLookup(oldState, 'nothing') != 0:
+                        #print ("saved nothing action " + str(qLookup(oldState, 'nothing')))
 
             oldState = newState
             pygame.display.flip()
             frame_clock += 1
 
-
-            if (int(time.time()) % 60 == 0):
+            # Serialize my object every minute
+            if int(time.time()) % 60 == 0 and not pickled:
                 pickle.dump( qTable, open("qTable.p", "wb"))
                 pickle.dump( rewardTable, open("rewardTable.p", "wb"))
                 print("pickled")
+                pickled = True
+            else:
+                if int(time.time()) % 60 != 0:
+                    pickled = False
         if score > 0: 
-            print('Game over! Score: %i' % score)
+            print('Game over! Score: ' + str(score) + ' Percent won: ' + str(int(won/lost*10)) + '% ')
         if score >= highscore:
             highscore = score
             pygame.image.save(display_surface,"highscores/" + str(score) + ".jpg")
