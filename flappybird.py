@@ -399,6 +399,8 @@ def main():
                 closestPipe = 1
             else:
                 closestPipe = 0
+            #States are saved as ( closestPipe's x coord, closestPipe's top pipe y coord, birds y coord)
+            #I divide them all by 10 to reduce the states possible
             newState = (int(pipes[closestPipe].rect[0]/10), int(pipes[closestPipe].top_height_px/10), int(bird.y/10))#int(pipes[closestPipe].bottom_height_px/10), int(bird.y/10))
             for e in pygame.event.get():
                 if e.type == QUIT or (e.type == KEYUP and e.key == K_ESCAPE):
