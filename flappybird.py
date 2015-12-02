@@ -323,8 +323,8 @@ def msec_to_frames(milliseconds, fps=FPS):
 def qUpdate(oldState, action, newState):
     r = getReward(oldState, action, newState)
     qTable[(oldState, action)] = (1 - alpha) * qLookup(oldState, action) + alpha * (r + gamma * maxQ(newState))
-    #if qTable[(oldState, action)] != 0:
-        #print ("updated " + str(oldState) + " : " + str(qTable[(oldState, action)]))
+    if qTable[(oldState, action)] != 0:
+        print ("updated " + action + " " + str(oldState) + " : " + str(qTable[(oldState, action)]))
 
 def maxQ(newState):
     q = max( qLookup(newState, 'jump'), qLookup(newState, 'nothing'))
@@ -505,7 +505,7 @@ def main():
             frame_clock += 1
 
 
-            if (int(time.time()) % 600 == 0):
+            if (int(time.time()) % 60 == 0):
                 pickle.dump( qTable, open("qTable.p", "wb"))
                 pickle.dump( rewardTable, open("rewardTable.p", "wb"))
                 print("pickled")
