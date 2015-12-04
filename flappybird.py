@@ -18,14 +18,15 @@ ANIMATION_SPEED = 0.18  # pixels per millisecond
 WIN_WIDTH = 284 * 2     # BG image size: 284x512 px; tiled twice
 WIN_HEIGHT = 512
 try:
-    qTable = pickle.load( open( "qTable.p", "rb"))
-    rewardTable = pickle.load( open( "rewardTable.p", "rb"))
-    f = open("qTable.txt", "w")
-    f.write(str(qTable.values()))
+    qTable = pickle.load( open( "qTable2.p", "rb"))
+    rewardTable = pickle.load( open( "rewardTable2.p", "rb"))
+    #f = open("qTable.txt", "w")
+    #f.write(str(qTable.values()))
     print( "Q table has " + str(len(qTable.values())) + " states")
 except(FileNotFoundError):
     qTable = {}
     rewardTable = {}
+    print( "Q table has " + str(len(qTable.values())) + " states")
 alpha = .5
 gamma = .8
 
@@ -307,7 +308,7 @@ def frames_to_msec(frames, fps=FPS):
     frames: How many frames to convert to milliseconds.
     fps: The framerate to use for conversion.  Default: FPS.
     """
-    return 3000.0 * frames / fps
+    return 1000.0 * frames / fps
 
 
 def msec_to_frames(milliseconds, fps=FPS):
@@ -318,7 +319,7 @@ def msec_to_frames(milliseconds, fps=FPS):
     fps: The framerate to use for conversion.  Default: FPS.
     """
 
-    return fps * milliseconds / 3000.0
+    return fps * milliseconds / 1000.0
 
 #States are (closestPipe's x coord, closestPipe's top pipe y coord, birds y coord)
 def qUpdate(oldState, action, newState): 
@@ -356,7 +357,6 @@ def main():
     lost = 0
     pygame.init()
     while not finished:
-        
         pickled = False
         display_surface = pygame.display.set_mode((WIN_WIDTH, WIN_HEIGHT))
         pygame.display.set_caption('Pygame Flappy Bird')
@@ -372,8 +372,13 @@ def main():
 
         # the bird stays in the same x position, so bird.x is a constant
         # center bird on screen
-        bird = Bird(50, int(WIN_HEIGHT/2 - Bird.HEIGHT/2), 2,
-                    (images['bird-wingup'], images['bird-wingdown']))
+        #bird = Bird(50, int(WIN_HEIGHT/2 - Bird.HEIGHT/2), 2,(images['bird-wingup'], images['bird-wingdown']))
+        birds = []
+        birdsDone = {}
+        for x in range(10):
+            birds.append(Bird(50, int(WIN_HEIGHT/2 - Bird.HEIGHT/2), 2,
+                    (images['bird-wingup'], images['bird-wingdown'])))
+            birdsDone[birds[x]] = False
 
         pipes = deque()
 
@@ -382,164 +387,143 @@ def main():
         done = paused = False
         closestPipe = 0
         #States are 
-        oldState = (500, 100, 280, bird.y)
-        action = 'nothing'
+        oldState = (500, 100, 280, 250)
+        yy = 0
         while not done:
-            jumped = False
-            clock.tick(FPS)
-
-            #logic to make sure your switching pipes once you're clear of the close one
-            
-
-            #get the info of the new state
-            
-            # Handle this 'manually'.  If we used pygame.time.set_timer(),
-            # pipe addition would be messed up when paused.
             if not (paused or frame_clock % msec_to_frames(PipePair.ADD_INTERVAL)):
-                pp = PipePair(images['pipe-end'], images['pipe-body'])
-                pipes.append(pp)
-
-            if (pipes[0].rect[0] + 80 - bird.x) < 0:
-                closestPipe = 1
-            else:
-                closestPipe = 0
-            #States are saved as ( closestPipe's x coord, closestPipe's top pipe y coord, birds y coord)
-            #I divide them all by 10 to reduce the states possible
-            newState = (int(pipes[closestPipe].rect[0]/10), int(pipes[closestPipe].top_height_px/10), int(bird.y/10))#int(pipes[closestPipe].bottom_height_px/10), int(bird.y/10))
-            for e in pygame.event.get():
-                if e.type == QUIT or (e.type == KEYUP and e.key == K_ESCAPE):
-                    finished = True
-                    done = True
-                    break
-                elif e.type == KEYUP and e.key in (K_PAUSE, K_p):
-                    paused = not paused
-                elif e.type == MOUSEBUTTONUP or (e.type == KEYUP and
-                        e.key in (K_UP, K_RETURN, K_SPACE)):
-                    bird.msec_to_climb = Bird.CLIMB_DURATION
-                    qUpdate(oldState, 'up', newState)
-                    jumped = True
-
-            if paused:
-                continue  # don't draw anything
-
-            # check for collisions
-            pipe_collision = any(p.collides_with(bird) for p in pipes)
-            if pipe_collision or 0 >= bird.y or bird.y >= WIN_HEIGHT - Bird.HEIGHT:
-                rewardTable[(oldState, action, newState)] = -100
-                qUpdate(oldState, action, newState)
-                #print ("saved " + str(oldState) + " : " + str(rewardTable[(oldState, action, newState)]))
-                done = True
-                lost += 1
-            else:
-                rewardTable[(oldState, action, newState)] = 1
-
-            for x in (0, WIN_WIDTH / 2):
-                display_surface.blit(images['background'], (x, 0))
+                    pp = PipePair(images['pipe-end'], images['pipe-body'])
+                    pipes.append(pp)
+                    #print ("[================================]")
+            clock.tick(FPS)
+            #print("fc = " + str(frame_clock))
+            #print ("loop " + str(yy))
 
             while pipes and not pipes[0].visible:
-                pipes.popleft()
+                    pipes.popleft()
+                    #print("popped one")
+
+            for i in range(len(birds)):
+                #print (bird)
+                action = 'nothing'
+                jumped = False    
+
+                try:
+                    if not birdsDone[birds[i]]:
+                        #print ("bird: " + str(i) + " height: " + str(birds[i].y))
+                        #print (closestPipe)
+                        #print (pipes[closestPipe].x)
+                        newState = (int(pipes[closestPipe].rect[0]/10), int(pipes[closestPipe].top_height_px/10), int(birds[i].y/10))#int(pipes[closestPipe].bottom_height_px/10), int(bird.y/10))
+                    #print("now in" + str(newState[0]) + ','+ str(newState[1]) + ','+ str(newState[2]))
+                except(KeyError):
+                     x = 1
+                for e in pygame.event.get():
+                    if e.type == QUIT or (e.type == KEYUP and e.key == K_ESCAPE):
+                        finished = True
+                        done = True
+                        break
+                    elif e.type == KEYUP and e.key in (K_PAUSE, K_p):
+                        paused = not paused
+                    elif e.type == MOUSEBUTTONUP or (e.type == KEYUP and
+                            e.key in (K_UP, K_RETURN, K_SPACE)):
+                        birds[i].msec_to_climb = birds[i].CLIMB_DURATION
+                        qUpdate(oldState, 'up', newState)
+                        jumped = True
+
+                if paused:
+                    continue  # don't draw anything
+
+                # check for collisions
+                pipe_collision = any(p.collides_with(birds[i]) for p in pipes)
+                if pipe_collision or 0 >= birds[i].y or birds[i].y >= WIN_HEIGHT - Bird.HEIGHT:
+                    rewardTable[(oldState, action, newState)] = -100
+                    qUpdate(oldState, action, newState)
+                    birdsDone.pop(birds[i], None)
+                    if len(birdsDone) == 0:
+                        done = True
+                    lost += 1
+                else:
+                    rewardTable[(oldState, action, newState)] = 1
+
+                for x in (0, WIN_WIDTH / 2):
+                    display_surface.blit(images['background'], (x, 0))
+
+                # update and display score
+                for p in pipes:
+                    if p.x + PipePair.WIDTH < birds[i].x and not p.score_counted:
+                        score += 1
+                        won += 1
+                        #print("recorded")
+                        rewardTable[(oldState, action, newState)] = 10
+
+                        qUpdate(oldState, action, newState)
+                        #if action == 'nothing':
+                            #print ("saved nothing action " + str(qLookup(oldState, 'nothing')))
+                        #print ("saved up " + str(oldState) + " : " + str(rewardTable[(oldState, action, newState)]))
+                        p.score_counted = True
+
+                score_surface = score_font.render(str(score), True, (255, 255, 255))
+                score_x = WIN_WIDTH/2 - score_surface.get_width()/2
+                display_surface.blit(score_surface, (score_x, PipePair.PIECE_HEIGHT))
+
+                jumpQscore = qLookup(newState, 'up')
+                nothingQscore = qLookup(newState, 'nothing')
+
+                #if jumpQscore != 0:
+                   # print ("found action - up " + str(newState) + " : " + str(jumpQscore))
+                #if nothingQscore != 0:
+                   #print ('found action - nothing' + str(newState) + " : " + str(nothingQscore))
+                rantint = randint(0, 1000)/1000
+                #print (rantint)
+                justDoIt = False
+                if rantint > .95: # and not nothingQscore > jumpQscore:
+                    justDoIt = True
+                    #print ("do it")
+                if not jumpQscore < nothingQscore or  justDoIt:
+                    if jumpQscore > nothingQscore or justDoIt:
+                        
+                        #print ("action jump because of q score " + str(jumpQscore) + "<" + str(newState[0]) + ','+ str(newState[0]) + ','+ str(newState[0]) + ">:" + str(nothingQscore))
+                        #if jumpQscore > (nothingQscore + .001):
+                        #print ("jumped")
+                        birds[i].msec_to_climb = Bird.CLIMB_DURATION
+                        qUpdate(oldState, 'up', newState)
+                        action = 'up'
+                        #if qLookup(oldState, 'up') != 0:
+                            #print ("saved jumped action " + str(qLookup(oldState, 'nothing')))
+                        jumped = True
+                #else:
+                    #if nothingQscore > 0:
+                        #print ("chose nothing because of q score " + str(jumpQscore) + " vs " + str(nothingQscore))
+
+                if not jumped:
+                    qUpdate(oldState, 'nothing', newState)
+                    action = 'nothing'
+                    #if action == 'nothing' and qLookup(oldState, 'nothing') != 0:
+                            #print ("saved nothing action " + str(qLookup(oldState, 'nothing')))
+                oldState = newState
+            for bird in birds:
+                x = 0
+                try:
+                    if not birdsDone[bird]:
+                        bird.update()
+                        display_surface.blit(bird.image, bird.rect)
+                except(KeyError):
+                     x = 1
 
             for p in pipes:
                 p.update()
                 display_surface.blit(p.image, p.rect)
-
-            bird.update()
-            display_surface.blit(bird.image, bird.rect)
-
-            # update and display score
-            for p in pipes:
-                if p.x + PipePair.WIDTH < bird.x and not p.score_counted:
-                    score += 1
-                    won += 1
-                    #print("recorded")
-                    rewardTable[(oldState, action, newState)] = 10
-
-                    qUpdate(oldState, action, newState)
-                    #if action == 'nothing':
-                        #print ("saved nothing action " + str(qLookup(oldState, 'nothing')))
-                    #print ("saved up " + str(oldState) + " : " + str(rewardTable[(oldState, action, newState)]))
-                    p.score_counted = True
-
-            score_surface = score_font.render(str(score), True, (255, 255, 255))
-            score_x = WIN_WIDTH/2 - score_surface.get_width()/2
-            display_surface.blit(score_surface, (score_x, PipePair.PIECE_HEIGHT))
-
-            # display bird position
-            #top_surface = top_font.render("top :" + str(p.top_height_px), True, (255, 255, 255))
-            #top_x = WIN_WIDTH/2 - top_surface.get_width()/2 - 150
-            #display_surface.blit(top_surface, (top_x, PipePair.PIECE_HEIGHT))
-
-            #bottom_surface = bottom_font.render("bottom :" +str(WIN_HEIGHT - p.bottom_height_px), True, (255, 255, 255))
-            #bottom_x = WIN_WIDTH/2 - bottom_surface.get_width()/2 - 150
-            #display_surface.blit(bottom_surface, (bottom_x, PipePair.PIECE_HEIGHT + 25 ))
-
-
-            #pipe_surface = pipe_font.render("pipe x:" +str(pipes[closestPipe].rect[0]), True, (255, 255, 255))
-            #pipe_x = WIN_WIDTH/2 - pipe_surface.get_width()/2
-            #display_surface.blit(pipe_surface, (pipe_x, PipePair.PIECE_HEIGHT + 25 ))
-
-            #btop_surface = btop_font.render("bird top :" +str(int(bird.y)), True, (255, 255, 255))
-            #btop_x = WIN_WIDTH/2 - btop_surface.get_width()/2 + 180
-            #display_surface.blit(btop_surface, (btop_x, PipePair.PIECE_HEIGHT))
-
-            #bbot_surface = bbot_font.render("bird bottom :" +str(int(bird.y)+32), True, (255, 255, 255))
-            #bbot_x = WIN_WIDTH/2 - bbot_surface.get_width()/2 + 180
-            #display_surface.blit(bbot_surface, (bbot_x, PipePair.PIECE_HEIGHT + 25 ))
-
-            jumpQscore = qLookup(oldState, 'up')
-            nothingQscore = qLookup(oldState, 'nothing')
-
-            #if jumpQscore > 0:
-            #    print ("found action - up " + str(oldState) + " : " + str(jumpQscore))
-            #if nothingQscore > 0:
-            #   print ('found action - nothing' + str(oldState) + " : " + str(nothingQscore))
-            rantint = randint(0, 1000)/1000
-            #print (rantint)
-            justDoIt = False
-            if rantint > .95: # and not nothingQscore > jumpQscore:
-                justDoIt = True
-                #print ("do it")
-            if not jumpQscore < nothingQscore or  justDoIt:
-                if jumpQscore > nothingQscore or justDoIt:
-                    #if jumpQscore > nothingQscore:
-                        #if jumpQscore > 0:
-                            #print ("chose jump because of q score " + str(jumpQscore) + " vs " + str(nothingQscore))
-                    #if jumpQscore > (nothingQscore + .001):
-                    #print ("jumped")
-                    #if rantint > .98:
-                        #continue
-                    #    print ("so random")
-                    #else:
-                        #print (jumpQscore, nothingQscore)
-                    bird.msec_to_climb = Bird.CLIMB_DURATION
-                    qUpdate(oldState, 'up', newState)
-                    action = 'up'
-                    #if qLookup(oldState, 'up') != 0:
-                        #print ("saved jumped action " + str(qLookup(oldState, 'nothing')))
-                    jumped = True
-            #else:
-                #if nothingQscore > 0:
-                    #print ("chose nothing because of q score " + str(jumpQscore) + " vs " + str(nothingQscore))
-
-            if not jumped:
-                qUpdate(oldState, 'nothing', newState)
-                action = 'nothing'
-                #if action == 'nothing' and qLookup(oldState, 'nothing') != 0:
-                        #print ("saved nothing action " + str(qLookup(oldState, 'nothing')))
-
-            oldState = newState
             pygame.display.flip()
             frame_clock += 1
 
-            # Serialize my object every minute
-            if int(time.time()) % 60 == 0 and not pickled:
-                pickle.dump( qTable, open("qTable.p", "wb"))
-                pickle.dump( rewardTable, open("rewardTable.p", "wb"))
-                print("pickled")
-                pickled = True
-            else:
-                if int(time.time()) % 60 != 0:
-                    pickled = False
+        # Serialize my object every minute
+        if int(time.time()) % 60 == 0 and not pickled:
+            pickle.dump( qTable, open("qTable2.p", "wb"))
+            pickle.dump( rewardTable, open("rewardTable2.p", "wb"))
+            print("pickled")
+            pickled = True
+        else:
+            if int(time.time()) % 60 != 0:
+                pickled = False
         if score > 0: 
             print('Game over! Score: ' + str(score) + ' Percent won: ' + str(int(won/lost*10)) + '% ')
         if score >= highscore:
@@ -549,8 +533,8 @@ def main():
         #print('bird left: ' + str(int(bird.x))  + ' \tright: ' + str(int(bird.x+32)) + ' \ttop: ' + str(int(bird.y)) + ' \tbottom: ' + str(int(bird.y+32)))
         #print(WIN_HEIGHT - p.bottom_height_px -p.top_height_px)  #distance between pipes is 128 px
     pygame.quit()
-    pickle.dump( qTable, open("qTable.p", "wb"))
-    pickle.dump( rewardTable, open("rewardTable.p", "wb"))
+    pickle.dump( qTable, open("qTable2.p", "wb"))
+    pickle.dump( rewardTable, open("rewardTable2.p", "wb"))
 
 
 
